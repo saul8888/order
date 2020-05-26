@@ -1,0 +1,16 @@
+version: "3"
+
+services:
+
+  location:
+    build: ./location
+    image: location
+    container_name: location
+    ports:
+        - "8080:8080"
+    environment:
+        - PORT=8080
+        #- DATABASE_URI=db:27018
+
+volumes:
+  dbdata:
