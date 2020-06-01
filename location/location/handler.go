@@ -46,14 +46,9 @@ func (handler *Handler) Done() {
 // GetLocationByID method
 func (handler *Handler) GetLocationByID(context echo.Context) error {
 
-	locationID := context.QueryParam("Id")
-	find, err := handler.locationRepo.GetByID(locationID)
+	ID := context.QueryParam("Id")
+	location, err := handler.locationRepo.GetByID(ID)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	location := model.Location{}
-	if err = find.Decode(&location); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -68,17 +63,11 @@ func (handler *Handler) GetLocations(context echo.Context) error {
 
 	params := new(model.GetLimit)
 	if err := context.Bind(params); err != nil {
-		fmt.Println("Get limit")
 		return context.JSON(http.StatusBadRequest, err)
 	}
 
-	cursor, ctx, err := handler.locationRepo.GetAll(params)
+	locations, err := handler.locationRepo.GetAll(params)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	locations := []model.Location{}
-	if err = cursor.All(ctx, &locations); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -95,7 +84,7 @@ func (handler *Handler) GetLocations(context echo.Context) error {
 
 // CreateLocation method
 func (handler *Handler) CreateLocation(context echo.Context) error {
-	request := new(model.CreateLocation)
+	request := new(model.Location)
 	if err := context.Bind(request); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
@@ -105,29 +94,25 @@ func (handler *Handler) CreateLocation(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
+	//validate ID externt
+	err := handler.locationRepo.ValidateID("merchant", request.MerchantID)
+	if err != nil {
+		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
+	}
+
 	// Dates Mongodb
-	request.LocationID = primitive.NewObjectID()
+	request.ID = primitive.NewObjectID()
 	request.CreatedAt = time.Now()
 	request.UpdatedAt = time.Now()
 
-	_, err := handler.locationRepo.CreateNew(request)
+	err = handler.locationRepo.CreateNew(request)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-	//show new location
-	find, err := handler.locationRepo.GetByID(request.LocationID.Hex())
-	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	location := model.Location{}
-	if err = find.Decode(&location); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
 	return context.JSON(http.StatusOK, DefaultLocationResponse{
 		Error:    false,
-		Location: location,
+		Location: *request,
 	})
 
 }
@@ -135,8 +120,8 @@ func (handler *Handler) CreateLocation(context echo.Context) error {
 // UpdateLocation method
 func (handler *Handler) UpdateLocation(context echo.Context) error {
 
-	locationID := context.QueryParam("locationId")
-	if len(locationID) == 0 {
+	ID := context.QueryParam("locationId")
+	if len(ID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("locationId queryParam is missing"))
 	}
 
@@ -150,19 +135,14 @@ func (handler *Handler) UpdateLocation(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	find, err := handler.locationRepo.GetByID(locationID)
+	location, err := handler.locationRepo.GetByID(ID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	currentLocation := model.Location{}
-	if err = find.Decode(&currentLocation); err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	req.Populate(currentLocation)
+	req.Populate(location)
 	updatedLocation, err := handler.locationRepo.Update(
-		locationID,
+		ID,
 		model.Locationupdate,
 	)
 	if err != nil {
@@ -179,23 +159,18 @@ func (handler *Handler) UpdateLocation(context echo.Context) error {
 // DeleteLocation
 func (handler *Handler) DeleteLocation(context echo.Context) error {
 
-	locationID := context.QueryParam("locationId")
+	ID := context.QueryParam("Id")
 
-	if len(locationID) == 0 {
+	if len(ID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("locationId queryParam is missing"))
 	}
 
-	find, err := handler.locationRepo.GetByID(locationID)
+	location, err := handler.locationRepo.GetByID(ID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	location := model.Location{}
-	if err = find.Decode(&location); err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	if err := handler.locationRepo.Delete(locationID); err != nil {
+	if err := handler.locationRepo.Delete(ID); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 	//return context.JSON(http.StatusOK, location)

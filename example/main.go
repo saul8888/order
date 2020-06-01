@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 
-	"github.com/orderforme/location/config"
-	"github.com/orderforme/location/location"
-	"github.com/orderforme/location/middelware"
-	"github.com/orderforme/location/router"
+	"github.com/orderforme/example/config"
+	"github.com/orderforme/example/employee"
+	"github.com/orderforme/example/middelware"
+	"github.com/orderforme/example/router"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 
 	middelware.ConfigMiddelware(route)
 
-	handler, err := location.NewHandler()
+	handler, err := employee.NewHandler()
 
 	if err != nil {
 		panic(err)

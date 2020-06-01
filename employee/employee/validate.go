@@ -12,11 +12,11 @@ type Validate interface {
 }
 
 type validate struct {
-	createEmployee model.CreateEmployee
+	createEmployee model.Employee
 	updateEmployee model.EmployeeUpdate
 }
 
-func CreateValidate(data model.CreateEmployee) Validate {
+func CreateValidate(data model.Employee) Validate {
 	return &validate{createEmployee: data}
 }
 

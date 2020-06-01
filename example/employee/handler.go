@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/labstack/echo"
-	"github.com/orderforme/employee/database"
-	"github.com/orderforme/employee/errors"
-	"github.com/orderforme/employee/model"
+	"github.com/orderforme/example/database"
+	"github.com/orderforme/example/errors"
+	"github.com/orderforme/example/model"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -20,6 +20,7 @@ type Employee interface {
 	UpdateEmployee(context echo.Context) error
 	DeleteEmployee(context echo.Context) error
 	SearchEmployee(context echo.Context) error
+	PruebaEmployee(context echo.Context) error
 }
 
 type Handler struct {
@@ -46,9 +47,14 @@ func (handler *Handler) Done() {
 // GetEmployeeByID method
 func (handler *Handler) GetEmployeeByID(context echo.Context) error {
 
-	ID := context.QueryParam("Id")
-	employee, err := handler.employeeRepo.GetByID(ID)
+	employeeID := context.QueryParam("Id")
+	find, err := handler.employeeRepo.GetByID(employeeID)
 	if err != nil {
+		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
+	}
+
+	employee := model.Employee{}
+	if err = find.Decode(&employee); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -67,8 +73,13 @@ func (handler *Handler) GetEmployees(context echo.Context) error {
 		return context.JSON(http.StatusBadRequest, err)
 	}
 
-	employees, err := handler.employeeRepo.GetAll(params)
+	cursor, ctx, err := handler.employeeRepo.GetAll(params)
 	if err != nil {
+		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
+	}
+
+	employees := []model.Employee{}
+	if err = cursor.All(ctx, &employees); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -85,7 +96,7 @@ func (handler *Handler) GetEmployees(context echo.Context) error {
 
 // CreateEmployee method
 func (handler *Handler) CreateEmployee(context echo.Context) error {
-	request := new(model.Employee)
+	request := new(model.CreateEmployee)
 	if err := context.Bind(request); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
@@ -95,25 +106,31 @@ func (handler *Handler) CreateEmployee(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	//err := handler.employeeRepo.ValidateID("location", request.ID, model.Location{})
-	err := handler.employeeRepo.ValidateID("location", request.LocationID, model.Employee{})
+	err := handler.employeeRepo.ValidateID("location", request.LocationID, model.Location{})
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
+
+	employee := model.Employee{}
+	employee.ID = primitive.NewObjectID()
+	employee.Object = request.Object
+	employee.LocationID, _ = primitive.ObjectIDFromHex(request.LocationID)
+	employee.Email = request.Email
+	employee.Status = request.Status
+	employee.Addresses = request.Addresses
+	employee.CreatedAt = time.Now()
+	employee.UpdatedAt = time.Now()
 
 	// Dates Mongodb
-	request.ID = primitive.NewObjectID()
-	request.CreatedAt = time.Now()
-	request.UpdatedAt = time.Now()
-
-	err = handler.employeeRepo.CreateNew(request)
+	err = handler.employeeRepo.CreateNew(employee)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
+	//show new employee
 	return context.JSON(http.StatusOK, DefaultEmployeeResponse{
 		Error:    false,
-		Employee: *request,
+		Employee: employee,
 	})
 
 }
@@ -121,8 +138,8 @@ func (handler *Handler) CreateEmployee(context echo.Context) error {
 // UpdateCustomer method
 func (handler *Handler) UpdateEmployee(context echo.Context) error {
 
-	ID := context.QueryParam("Id")
-	if len(ID) == 0 {
+	employeeID := context.QueryParam("employeeId")
+	if len(employeeID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("customerId queryParam is missing"))
 	}
 
@@ -136,14 +153,19 @@ func (handler *Handler) UpdateEmployee(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	employee, err := handler.employeeRepo.GetByID(ID)
+	find, err := handler.employeeRepo.GetByID(employeeID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	req.Populate(employee)
+	currentEmployee := model.Employee{}
+	if err = find.Decode(&currentEmployee); err != nil {
+		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
+	}
+
+	req.Populate(currentEmployee)
 	updatedEmployee, err := handler.employeeRepo.Update(
-		ID,
+		employeeID,
 		model.Employeeupdate,
 	)
 	if err != nil {
@@ -160,21 +182,26 @@ func (handler *Handler) UpdateEmployee(context echo.Context) error {
 // DeleteCustomer method
 func (handler *Handler) DeleteEmployee(context echo.Context) error {
 
-	ID := context.QueryParam("Id")
+	employeeID := context.QueryParam("employeeId")
 
-	if len(ID) == 0 {
+	if len(employeeID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("employeeId queryParam is missing"))
 	}
 
-	employee, err := handler.employeeRepo.GetByID(ID)
+	find, err := handler.employeeRepo.GetByID(employeeID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	if err := handler.employeeRepo.Delete(ID); err != nil {
+	employee := model.Employee{}
+	if err = find.Decode(&employee); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
+	if err := handler.employeeRepo.Delete(employeeID); err != nil {
+		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
+	}
+	//return context.JSON(http.StatusOK, employee)
 	return context.JSON(http.StatusOK, DefaultEmployeeResponse{
 		Error:    false,
 		Employee: employee,
@@ -200,4 +227,8 @@ func (handler *Handler) SearchEmployee(context echo.Context) error {
 
 	return context.JSON(http.StatusOK, employees)
 
+}
+
+func (handler *Handler) PruebaEmployee(context echo.Context) error {
+	return nil
 }

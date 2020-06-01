@@ -13,51 +13,37 @@ type GetLimit struct {
 
 // Address data model
 type AddressMe struct {
-	Tag              string `bson:"tag" json:"tag"`
-	FirstStreetLine  string `bson:"firtStreetLine" json:"firstStreetLine"`
-	SecondStreetLine string `bson:"secondStreetLine" json:"secondStreetLine"`
-	City             string `bson:"city" json:"city"`
-	PostalCode       string `bson:"postalCode" json:"postalCode"`
-	Notes            string `bson:"notes" json:"notes"`
+	Country    string `bson:"country" json:"country" validate:"required"` //"US",
+	State      string `bson:"state" json:"state"`                         //"NY",
+	City       string `bson:"city" json:"city"`
+	Street     string `bson:"street" json:"street"`
+	PostalCode string `bson:"postalCode" json:"postalCode"`
 }
 
 type Merchant struct {
-	MerchantID   primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Name         string             `bson:"name" json:"name" validate:"required"`
 	Status       string             `bson:"status" json:"status" validate:"required"`             //"ACTIVE"
-	Country      string             `bson:"country" json:"country" validate:"required"`           //"US",
 	LanguageCode string             `bson:"languageCode" json:"languageCode" validate:"required"` //"en-US",
 	Currency     string             `bson:"currency" json:"currency" validate:"required"`         //"USD",
-	Addresses    string             `bson:"addresses" json:"addresses"`                           //[]AddressesMe
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
-
-type CreateMerchant struct {
-	MerchantID   primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name         string             `bson:"name" json:"name" validate:"required"`
-	Status       string             `bson:"status" json:"status" validate:"required"`             //"ACTIVE"
-	Country      string             `bson:"country" json:"country" validate:"required"`           //"US",
-	LanguageCode string             `bson:"languageCode" json:"languageCode" validate:"required"` //"en-US",
-	Currency     string             `bson:"currency" json:"currency" validate:"required"`         //"USD",
-	Addresses    string             `bson:"addresses" json:"addresses"`                           //[]AddressesMe
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	Addresses    AddressMe          `bson:"addresses" json:"addresses"`                           //[]AddressesMe
+	CreatedAt    time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
 type MerchantUpdate struct {
-	Name      string `bson:"name" json:"name"`
-	Status    string `bson:"status" json:"status" validate:"required"`
-	Currency  string `bson:"currency" json:"currency" validate:"required"`
-	Addresses string `bson:"addresses" json:"addresses"` //[]AddressesEm
+	Name      string    `bson:"name" json:"name"`
+	Status    string    `bson:"status" json:"status" validate:"required"`
+	Currency  string    `bson:"currency" json:"currency" validate:"required"`
+	Addresses AddressMe `bson:"addresses" json:"addresses"`
 }
 
-var Merchantupdate map[string]interface{} = map[string]interface{}{
-	"name":      "example",
-	"status":    "example",
-	"currency":  "example",
-	"addresses": "example",
-	"updatedat": time.Now(),
+var Merchantupdate = map[string]interface{}{
+	"name":              "",
+	"status":            "",
+	"currency":          "",
+	"addresses.country": "",
+	"updatedat":         time.Now(),
 }
 
 type MerchantSearch struct {
@@ -66,7 +52,7 @@ type MerchantSearch struct {
 	Password string `bson:"password" json:"password"`
 }
 
-var Merchantsearch map[string]interface{} = map[string]interface{}{
+var Merchantsearch = map[string]interface{}{
 	"Name":     "example",
 	"email":    "example@example.com",
 	"password": "admin",

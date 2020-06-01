@@ -8,12 +8,11 @@ import (
 
 // Address data model
 type AddressesEm struct {
-	Tag              string `bson:"tag" json:"tag"`
-	FirstStreetLine  string `bson:"firtStreetLine" json:"firstStreetLine"`
-	SecondStreetLine string `bson:"secondStreetLine" json:"secondStreetLine"`
-	City             string `bson:"city" json:"city"`
-	PostalCode       string `bson:"postalCode" json:"postalCode"`
-	Notes            string `bson:"notes" json:"notes"`
+	Country    string `bson:"country" json:"country" validate:"required"` //"US",
+	State      string `bson:"state" json:"state" validate:"required"`     //"NY",
+	City       string `bson:"city" json:"city" validate:"required"`
+	Street     string `bson:"street" json:"street" validate:"required"`
+	PostalCode string `bson:"postalCode" json:"postalCode" validate:"required"`
 }
 
 type GetLimit struct {
@@ -22,33 +21,19 @@ type GetLimit struct {
 }
 
 type Employee struct {
-	EmployeeID  primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	FirstName   string             `bson:"firstName" json:"firstName"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Object      string             `bson:"object" json:"object"`
+	FirstName   string             `bson:"first_Name" json:"firstName"`
 	LastName    string             `bson:"lastName" json:"lastName"`
 	RolesID     string             `bson:"rolesId" json:"rolesId"`
-	LocationID  string             `bson:"locationId" json:"locationId"` // ["LOCATION_ID"],
+	LocationID  string             `bson:"locationId" json:"locationId"`
 	Email       string             `bson:"email" json:"email"`
 	Password    string             `bson:"password" json:"password"`
-	Status      string             `bson:"status" json:"status"` //"ACTIVE"
+	Status      string             `bson:"status" json:"status"`
 	PhoneNumber string             `bson:"phoneNumber" json:"phoneNumber"`
-	Addresses   string             `bson:"addresses" json:"addresses"` //[]AddressEm
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
-type CreateEmployee struct {
-	EmployeeID  primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	FirstName   string             `bson:"firstName" json:"firstName" validate:"required"`
-	LastName    string             `bson:"lastName" json:"lastName" validate:"required"`
-	RolesID     string             `bson:"rolesId" json:"rolesId" validate:"required"`
-	LocationID  string             `bson:"locationId" json:"locationId"` // ["LOCATION_ID"],
-	Email       string             `bson:"email" json:"email" validate:"required,email"`
-	Password    string             `bson:"password" json:"password" validate:"required"`
-	Status      string             `bson:"status" json:"status" validate:"required"` //"ACTIVE"
-	PhoneNumber string             `bson:"phoneNumber" json:"phoneNumber" validate:"required"`
-	Addresses   string             `bson:"addresses" json:"addresses"` //[]AddressesEm
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	Addresses   AddressesEm        `bson:"addresses" json:"addresses"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
 type EmployeeUpdate struct {
@@ -59,7 +44,7 @@ type EmployeeUpdate struct {
 	Addresses   string `bson:"addresses" json:"addresses"` //[]AddressesEm
 }
 
-var Employeeupdate map[string]interface{} = map[string]interface{}{
+var Employeeupdate = map[string]interface{}{
 	"firstName":   "example",
 	"lastName":    "example",
 	"email":       "example@example.com",
@@ -76,7 +61,7 @@ type EmployeeSearch struct {
 	PhoneNumber string `bson:"phoneNumber" json:"phoneNumber"`
 }
 
-var Employeesearch map[string]interface{} = map[string]interface{}{
+var Employeesearch = map[string]interface{}{
 	"firstName":   "example",
 	"lastName":    "example",
 	"email":       "example@example.com",

@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/orderforme/employee/config"
@@ -21,13 +20,14 @@ const (
 type MongoDB interface {
 	ConnectDB() error
 	DisconnectDB() error
-	GetByID(employeeID string) (*mongo.SingleResult, error)
-	GetAll(params *model.GetLimit) (*mongo.Cursor, context.Context, error)
+	GetByID(ID string) (model.Employee, error)
+	GetAll(params *model.GetLimit) ([]model.Employee, error)
 	GetCantTotal() (int, error)
+	CreateNew(params interface{}) error
+	Update(ID string, params interface{}) (model.Employee, error)
+	Delete(ID string) error
+	ValidateID(table string, ID string, params interface{}) error
 	Search(params interface{}) (*mongo.Cursor, context.Context, error)
-	CreateNew(params interface{}) (string, error)
-	Update(employeeID string, params interface{}) (model.Employee, error)
-	Delete(employeeID string) error
 }
 
 type Mongodb struct {
@@ -63,39 +63,47 @@ func (repo *Mongodb) DisconnectDB() error {
 }
 
 // GetByID method
-func (repo *Mongodb) GetByID(employeeID string) (*mongo.SingleResult, error) {
+func (repo *Mongodb) GetByID(ID string) (model.Employee, error) {
 	collection := repo.db.Collection(defaultCollectionName)
-
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
-	objectID, err := primitive.ObjectIDFromHex(employeeID)
+	employee := model.Employee{}
+	objectID, err := primitive.ObjectIDFromHex(ID)
 	if err != nil {
-		return nil, err
+		return employee, err
 	}
 
-	find := collection.FindOne(ctx, bson.M{"_id": objectID})
+	err = collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&employee)
+	if err != nil {
+		return employee, err
+	}
 
-	return find, nil
+	return employee, nil
 }
 
 // GetAll method
-func (repo *Mongodb) GetAll(params *model.GetLimit) (*mongo.Cursor, context.Context, error) {
+func (repo *Mongodb) GetAll(params *model.GetLimit) ([]model.Employee, error) {
 	collection := repo.db.Collection(defaultCollectionName)
-
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
+	employee := []model.Employee{}
 	options := options.Find()
 	options.SetSkip(int64(params.Offset))
 	options.SetLimit(int64(params.Limit))
 
 	cursor, err := collection.Find(ctx, bson.M{}, options)
 	if err != nil {
-		return nil, nil, err
+		return employee, err
 	}
 
-	return cursor, ctx, nil
+	if err = cursor.All(ctx, &employee); err != nil {
+		return employee, err
+	}
+
+	return employee, nil
+
 }
 
 //GetCantTotal method
@@ -114,6 +122,83 @@ func (repo *Mongodb) GetCantTotal() (int, error) {
 	return int(total), nil
 }
 
+// CreateNew method
+func (repo *Mongodb) CreateNew(params interface{}) error {
+	//connect collection
+	collection := repo.db.Collection(defaultCollectionName)
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	_, err := collection.InsertOne(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Update method
+func (repo *Mongodb) Update(employeeID string, params interface{}) (model.Employee, error) {
+
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	updated := model.Employee{}
+
+	objectID, err := primitive.ObjectIDFromHex(employeeID)
+	if err != nil {
+		return model.Employee{}, err
+	}
+
+	filter := bson.M{"_id": objectID}
+	update := bson.M{"$set": params}
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	err = collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updated)
+
+	return updated, err
+}
+
+// Delete method
+func (repo *Mongodb) Delete(ID string) error {
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	objectID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return err
+	}
+
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objectID})
+
+	return err
+}
+
+// ValidateID method
+func (repo *Mongodb) ValidateID(table string, ID string, params interface{}) error {
+
+	collection := repo.db.Collection(table)
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	objectID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return err
+	}
+
+	other := params
+	err = collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&other)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 //Search method
 func (repo *Mongodb) Search(params interface{}) (*mongo.Cursor, context.Context, error) {
 	collection := repo.db.Collection(defaultCollectionName)
@@ -126,61 +211,4 @@ func (repo *Mongodb) Search(params interface{}) (*mongo.Cursor, context.Context,
 	}
 
 	return cursor, ctx, nil
-}
-
-// CreateNew method
-func (repo *Mongodb) CreateNew(params interface{}) (string, error) {
-	//connect collection
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	result, err := collection.InsertOne(ctx, params)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%v", result.InsertedID), nil
-}
-
-// Update method
-func (repo *Mongodb) Update(employeeID string, params interface{}) (model.Employee, error) {
-
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	updatedEmployee := model.Employee{}
-
-	objectID, err := primitive.ObjectIDFromHex(employeeID)
-	if err != nil {
-		return model.Employee{}, err
-	}
-
-	filter := bson.M{"_id": objectID}
-	update := bson.M{"$set": params}
-	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
-
-	err = collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updatedEmployee)
-
-	return updatedEmployee, err
-}
-
-// Delete method
-func (repo *Mongodb) Delete(employeeID string) error {
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	objectID, err := primitive.ObjectIDFromHex(employeeID)
-	if err != nil {
-		return err
-	}
-
-	_, err = collection.DeleteOne(ctx, bson.M{"_id": objectID})
-
-	return err
 }

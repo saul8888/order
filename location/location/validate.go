@@ -12,11 +12,11 @@ type Validate interface {
 }
 
 type validate struct {
-	createLocation model.CreateLocation
+	createLocation model.Location
 	updateLocation model.LocationUpdate
 }
 
-func CreateValidate(data model.CreateLocation) Validate {
+func CreateValidate(data model.Location) Validate {
 	return &validate{createLocation: data}
 }
 
@@ -67,6 +67,12 @@ func (request *validate) Populate(customer model.Location) error {
 		model.Locationupdate["instagram"] = customer.Instagram
 	} else {
 		model.Locationupdate["instagram"] = request.updateLocation.Instagram
+	}
+
+	if request.updateLocation.Status == "" {
+		model.Locationupdate["status"] = customer.Status
+	} else {
+		model.Locationupdate["status"] = request.updateLocation.Status
 	}
 
 	return nil

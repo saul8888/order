@@ -47,13 +47,8 @@ func (handler *Handler) Done() {
 func (handler *Handler) GetCustomerByID(context echo.Context) error {
 
 	customerID := context.QueryParam("Id")
-	find, err := handler.customerRepo.GetByID(customerID)
+	customer, err := handler.customerRepo.GetByID(customerID)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	customer := model.Customer{}
-	if err = find.Decode(&customer); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -72,13 +67,8 @@ func (handler *Handler) GetCustomers(context echo.Context) error {
 		return context.JSON(http.StatusBadRequest, err)
 	}
 
-	cursor, ctx, err := handler.customerRepo.GetAll(params)
+	customers, err := handler.customerRepo.GetAll(params)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	customers := []model.Customer{}
-	if err = cursor.All(ctx, &customers); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -95,7 +85,7 @@ func (handler *Handler) GetCustomers(context echo.Context) error {
 
 // CreateCustomer method
 func (handler *Handler) CreateCustomer(context echo.Context) error {
-	request := new(model.CreateCustomer)
+	request := new(model.Customer)
 	if err := context.Bind(request); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
@@ -106,28 +96,18 @@ func (handler *Handler) CreateCustomer(context echo.Context) error {
 	}
 
 	// Dates Mongodb
-	request.CustomerID = primitive.NewObjectID()
+	request.ID = primitive.NewObjectID()
 	request.CreatedAt = time.Now()
 	request.UpdatedAt = time.Now()
 
-	_, err := handler.customerRepo.CreateNew(request)
+	err := handler.customerRepo.CreateNew(request)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-	//show new customer
-	find, err := handler.customerRepo.GetByID(request.CustomerID.Hex())
-	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	customer := model.Customer{}
-	if err = find.Decode(&customer); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
 	return context.JSON(http.StatusOK, DefaultCustomerResponse{
 		Error:    false,
-		Customer: customer,
+		Customer: *request,
 	})
 
 }
@@ -135,8 +115,8 @@ func (handler *Handler) CreateCustomer(context echo.Context) error {
 //  UpdateCustomer method
 func (handler *Handler) UpdateCustomer(context echo.Context) error {
 
-	customerID := context.QueryParam("customerId")
-	if len(customerID) == 0 {
+	ID := context.QueryParam("Id")
+	if len(ID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("customerId queryParam is missing"))
 	}
 
@@ -150,19 +130,14 @@ func (handler *Handler) UpdateCustomer(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	find, err := handler.customerRepo.GetByID(customerID)
+	customer, err := handler.customerRepo.GetByID(ID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	currentCustomer := model.Customer{}
-	if err = find.Decode(&currentCustomer); err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	req.Populate(currentCustomer)
-	updatedCustomer, err := handler.customerRepo.Update(
-		customerID,
+	req.Populate(customer)
+	updated, err := handler.customerRepo.Update(
+		ID,
 		model.Customerupdate,
 	)
 	if err != nil {
@@ -171,7 +146,7 @@ func (handler *Handler) UpdateCustomer(context echo.Context) error {
 
 	return context.JSON(http.StatusOK, DefaultCustomerResponse{
 		Error:    false,
-		Customer: updatedCustomer,
+		Customer: updated,
 	})
 
 }
@@ -179,23 +154,18 @@ func (handler *Handler) UpdateCustomer(context echo.Context) error {
 // DeleteCustomer method
 func (handler *Handler) DeleteCustomer(context echo.Context) error {
 
-	customerID := context.QueryParam("customerId")
+	ID := context.QueryParam("Id")
 
-	if len(customerID) == 0 {
+	if len(ID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("customerId queryParam is missing"))
 	}
 
-	find, err := handler.customerRepo.GetByID(customerID)
+	customer, err := handler.customerRepo.GetByID(ID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	customer := model.Customer{}
-	if err = find.Decode(&customer); err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	if err := handler.customerRepo.Delete(customerID); err != nil {
+	if err := handler.customerRepo.Delete(ID); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 

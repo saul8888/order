@@ -2,15 +2,15 @@ version: "3"
 
 services:
 
-  location:
-    build: ./location
-    image: location
-    container_name: location
+  web:
+    build: ./employee
+    image: employee
+    container_name: employee
     ports:
         - "8080:8080"
     environment:
         - PORT=8080
         #- DATABASE_URI=db:27018
 
-volumes:
-  dbdata:
+#volumes:
+#  dbdata:

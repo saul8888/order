@@ -13,11 +13,11 @@ type Validate interface {
 
 //Merchant merchant
 type validate struct {
-	createMerchant model.CreateMerchant
+	createMerchant model.Merchant
 	updateMerchant model.MerchantUpdate
 }
 
-func CreateValidate(data model.CreateMerchant) Validate {
+func CreateValidate(data model.Merchant) Validate {
 	return &validate{createMerchant: data}
 }
 
@@ -41,9 +41,9 @@ func (vali *validate) ValiUpdate(context echo.Context) error {
 
 func (request *validate) Populate(customer model.Merchant) error {
 	if request.updateMerchant.Name == "" {
-		model.Merchantupdate["Name"] = customer.Name
+		model.Merchantupdate["name"] = customer.Name
 	} else {
-		model.Merchantupdate["Name"] = request.updateMerchant.Name
+		model.Merchantupdate["name"] = request.updateMerchant.Name
 	}
 
 	if request.updateMerchant.Currency == "" {
@@ -58,10 +58,10 @@ func (request *validate) Populate(customer model.Merchant) error {
 		model.Merchantupdate["status"] = request.updateMerchant.Status
 	}
 
-	if request.updateMerchant.Addresses == "" {
-		model.Merchantupdate["addresses"] = customer.Addresses
+	if request.updateMerchant.Addresses.Country == "" {
+		model.Merchantupdate["addresses.country"] = customer.Addresses.Country
 	} else {
-		model.Merchantupdate["addresses"] = request.updateMerchant.Addresses
+		model.Merchantupdate["addresses.country"] = request.updateMerchant.Addresses.Country
 	}
 
 	return nil

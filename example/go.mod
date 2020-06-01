@@ -1,4 +1,4 @@
-module github.com/orderforme/location
+module github.com/orderforme/example
 
 go 1.14
 

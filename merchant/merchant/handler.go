@@ -46,14 +46,9 @@ func (handler *Handler) Done() {
 // GetMerchantByID method
 func (handler *Handler) GetMerchantByID(context echo.Context) error {
 
-	merchantID := context.QueryParam("Id")
-	find, err := handler.merchantRepo.GetByID(merchantID)
+	ID := context.QueryParam("Id")
+	merchant, err := handler.merchantRepo.GetByID(ID)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	merchant := model.Merchant{}
-	if err = find.Decode(&merchant); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -72,13 +67,8 @@ func (handler *Handler) GetMerchants(context echo.Context) error {
 		return context.JSON(http.StatusBadRequest, err)
 	}
 
-	cursor, ctx, err := handler.merchantRepo.GetAll(params)
+	merchants, err := handler.merchantRepo.GetAll(params)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	merchants := []model.Merchant{}
-	if err = cursor.All(ctx, &merchants); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -95,7 +85,7 @@ func (handler *Handler) GetMerchants(context echo.Context) error {
 
 // CreateMerchant method
 func (handler *Handler) CreateMerchant(context echo.Context) error {
-	request := new(model.CreateMerchant)
+	request := new(model.Merchant)
 	if err := context.Bind(request); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
@@ -106,28 +96,18 @@ func (handler *Handler) CreateMerchant(context echo.Context) error {
 	}
 
 	// Dates Mongodb
-	request.MerchantID = primitive.NewObjectID()
+	request.ID = primitive.NewObjectID()
 	request.CreatedAt = time.Now()
 	request.UpdatedAt = time.Now()
 
-	_, err := handler.merchantRepo.CreateNew(request)
+	err := handler.merchantRepo.CreateNew(request)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-	//show new merchant
-	find, err := handler.merchantRepo.GetByID(request.MerchantID.Hex())
-	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	merchant := model.Merchant{}
-	if err = find.Decode(&merchant); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
 	return context.JSON(http.StatusOK, DefaultMerchantResponse{
 		Error:    false,
-		Merchant: merchant,
+		Merchant: *request,
 	})
 
 }
@@ -135,8 +115,8 @@ func (handler *Handler) CreateMerchant(context echo.Context) error {
 // UpdateMerchant method
 func (handler *Handler) UpdateMerchant(context echo.Context) error {
 
-	merchantID := context.QueryParam("merchantId")
-	if len(merchantID) == 0 {
+	ID := context.QueryParam("Id")
+	if len(ID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("merchantId queryParam is missing"))
 	}
 
@@ -150,19 +130,14 @@ func (handler *Handler) UpdateMerchant(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	find, err := handler.merchantRepo.GetByID(merchantID)
+	merchant, err := handler.merchantRepo.GetByID(ID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	currentMerchant := model.Merchant{}
-	if err = find.Decode(&currentMerchant); err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	req.Populate(currentMerchant)
+	req.Populate(merchant)
 	updatedMerchant, err := handler.merchantRepo.Update(
-		merchantID,
+		ID,
 		model.Merchantupdate,
 	)
 	if err != nil {
@@ -179,23 +154,18 @@ func (handler *Handler) UpdateMerchant(context echo.Context) error {
 // DeleteMerchant method
 func (handler *Handler) DeleteMerchant(context echo.Context) error {
 
-	merchantID := context.QueryParam("merchantId")
+	ID := context.QueryParam("merchantId")
 
-	if len(merchantID) == 0 {
+	if len(ID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("merchantId queryParam is missing"))
 	}
 
-	find, err := handler.merchantRepo.GetByID(merchantID)
+	merchant, err := handler.merchantRepo.GetByID(ID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	merchant := model.Merchant{}
-	if err = find.Decode(&merchant); err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	if err := handler.merchantRepo.Delete(merchantID); err != nil {
+	if err := handler.merchantRepo.Delete(ID); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 	//return context.JSON(http.StatusOK, merchant)

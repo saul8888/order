@@ -12,11 +12,11 @@ type Validate interface {
 }
 
 type validate struct {
-	createPayment model.CreatePayment
+	createPayment model.Payment
 	updatePayment model.PaymentUpdate
 }
 
-func CreateValidate(data model.CreatePayment) Validate {
+func CreateValidate(data model.Payment) Validate {
 	return &validate{createPayment: data}
 }
 
@@ -57,10 +57,10 @@ func (request *validate) Populate(customer model.Payment) error {
 		model.Paymentupdate["currency"] = request.updatePayment.Currency
 	}
 
-	if request.updatePayment.Amount == "" {
-		model.Paymentupdate["amount"] = customer.Amount
+	if request.updatePayment.Amount.Amount == "" {
+		model.Paymentupdate["amountMoney.amount"] = customer.Amount.Amount
 	} else {
-		model.Paymentupdate["amount"] = request.updatePayment.Amount
+		model.Paymentupdate["amountMoney.amount"] = request.updatePayment.Amount.Amount
 	}
 
 	return nil

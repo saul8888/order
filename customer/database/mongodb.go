@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/orderforme/customer/config"
@@ -22,13 +21,13 @@ const (
 type MongoDB interface {
 	ConnectDB() error
 	DisconnectDB() error
-	GetByID(customerID string) (*mongo.SingleResult, error)
-	GetAll(params *model.GetLimit) (*mongo.Cursor, context.Context, error)
+	GetByID(ID string) (model.Customer, error)
+	GetAll(params *model.GetLimit) ([]model.Customer, error)
 	GetCantTotal() (int, error)
 	Search(params interface{}) (*mongo.Cursor, context.Context, error)
-	CreateNew(params interface{}) (string, error)
-	Update(customerID string, params interface{}) (model.Customer, error)
-	Delete(customerID string) error
+	CreateNew(params interface{}) error
+	Update(ID string, params interface{}) (model.Customer, error)
+	Delete(ID string) error
 }
 
 type Mongodb struct {
@@ -64,39 +63,48 @@ func (repo *Mongodb) DisconnectDB() error {
 }
 
 // GetByID method
-func (repo *Mongodb) GetByID(customerID string) (*mongo.SingleResult, error) {
-	collection := repo.db.Collection(defaultCollectionName)
+func (repo *Mongodb) GetByID(customerID string) (model.Customer, error) {
 
+	collection := repo.db.Collection(defaultCollectionName)
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
+	customer := model.Customer{}
 	objectID, err := primitive.ObjectIDFromHex(customerID)
 	if err != nil {
-		return nil, err
+		return customer, err
 	}
 
-	find := collection.FindOne(ctx, bson.M{"_id": objectID})
+	err = collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&customer)
+	if err != nil {
+		return customer, err
+	}
 
-	return find, nil
+	return customer, nil
 }
 
 // GetAll method
-func (repo *Mongodb) GetAll(params *model.GetLimit) (*mongo.Cursor, context.Context, error) {
+func (repo *Mongodb) GetAll(params *model.GetLimit) ([]model.Customer, error) {
 	collection := repo.db.Collection(defaultCollectionName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
+	customer := []model.Customer{}
 	options := options.Find()
 	options.SetSkip(int64(params.Offset))
 	options.SetLimit(int64(params.Limit))
 
 	cursor, err := collection.Find(ctx, bson.M{}, options)
 	if err != nil {
-		return nil, nil, err
+		return customer, err
 	}
 
-	return cursor, ctx, nil
+	if err = cursor.All(ctx, &customer); err != nil {
+		return customer, err
+	}
+
+	return customer, nil
 }
 
 //GetCantTotal method
@@ -115,6 +123,63 @@ func (repo *Mongodb) GetCantTotal() (int, error) {
 	return int(total), nil
 }
 
+// CreateNew method
+func (repo *Mongodb) CreateNew(params interface{}) error {
+	//connect collection
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	_, err := collection.InsertOne(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Update method
+func (repo *Mongodb) Update(ID string, params interface{}) (model.Customer, error) {
+
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	updated := model.Customer{}
+
+	objectID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return model.Customer{}, err
+	}
+
+	filter := bson.M{"_id": objectID}
+	update := bson.M{"$set": params}
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	err = collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updated)
+
+	return updated, err
+}
+
+// Delete method
+func (repo *Mongodb) Delete(ID string) error {
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	objectID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return err
+	}
+
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objectID})
+
+	return err
+}
+
 //Search method
 func (repo *Mongodb) Search(params interface{}) (*mongo.Cursor, context.Context, error) {
 	collection := repo.db.Collection(defaultCollectionName)
@@ -127,61 +192,4 @@ func (repo *Mongodb) Search(params interface{}) (*mongo.Cursor, context.Context,
 	}
 
 	return cursor, ctx, nil
-}
-
-// CreateNew method
-func (repo *Mongodb) CreateNew(params interface{}) (string, error) {
-	//connect collection
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	result, err := collection.InsertOne(ctx, params)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%v", result.InsertedID), nil
-}
-
-// Update method
-func (repo *Mongodb) Update(customerID string, params interface{}) (model.Customer, error) {
-
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	updatedCustomer := model.Customer{}
-
-	objectID, err := primitive.ObjectIDFromHex(customerID)
-	if err != nil {
-		return model.Customer{}, err
-	}
-
-	filter := bson.M{"_id": objectID}
-	update := bson.M{"$set": params}
-	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
-
-	err = collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updatedCustomer)
-
-	return updatedCustomer, err
-}
-
-// Delete method
-func (repo *Mongodb) Delete(customerID string) error {
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	objectID, err := primitive.ObjectIDFromHex(customerID)
-	if err != nil {
-		return err
-	}
-
-	_, err = collection.DeleteOne(ctx, bson.M{"_id": objectID})
-
-	return err
 }

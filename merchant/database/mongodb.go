@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/orderforme/merchant/config"
@@ -21,13 +20,13 @@ const (
 type MongoDB interface {
 	ConnectDB() error
 	DisconnectDB() error
-	GetByID(merchantID string) (*mongo.SingleResult, error)
-	GetAll(params *model.GetLimit) (*mongo.Cursor, context.Context, error)
+	GetByID(ID string) (model.Merchant, error)
+	GetAll(params *model.GetLimit) ([]model.Merchant, error)
 	GetCantTotal() (int, error)
+	CreateNew(params interface{}) error
+	Update(ID string, params interface{}) (model.Merchant, error)
+	Delete(ID string) error
 	Search(params interface{}) (*mongo.Cursor, context.Context, error)
-	CreateNew(params interface{}) (string, error)
-	Update(merchantID string, params interface{}) (model.Merchant, error)
-	Delete(merchantID string) error
 }
 
 type Mongodb struct {
@@ -63,39 +62,46 @@ func (repo *Mongodb) DisconnectDB() error {
 }
 
 // GetByID method
-func (repo *Mongodb) GetByID(merchantID string) (*mongo.SingleResult, error) {
+func (repo *Mongodb) GetByID(ID string) (model.Merchant, error) {
 	collection := repo.db.Collection(defaultCollectionName)
-
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
-	objectID, err := primitive.ObjectIDFromHex(merchantID)
+	merchant := model.Merchant{}
+	objectID, err := primitive.ObjectIDFromHex(ID)
 	if err != nil {
-		return nil, err
+		return merchant, err
 	}
 
-	find := collection.FindOne(ctx, bson.M{"_id": objectID})
+	err = collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&merchant)
+	if err != nil {
+		return merchant, err
+	}
 
-	return find, nil
+	return merchant, nil
 }
 
 // GetAll method
-func (repo *Mongodb) GetAll(params *model.GetLimit) (*mongo.Cursor, context.Context, error) {
+func (repo *Mongodb) GetAll(params *model.GetLimit) ([]model.Merchant, error) {
 	collection := repo.db.Collection(defaultCollectionName)
-
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
+	merchant := []model.Merchant{}
 	options := options.Find()
 	options.SetSkip(int64(params.Offset))
 	options.SetLimit(int64(params.Limit))
 
 	cursor, err := collection.Find(ctx, bson.M{}, options)
 	if err != nil {
-		return nil, nil, err
+		return merchant, err
 	}
 
-	return cursor, ctx, nil
+	if err = cursor.All(ctx, &merchant); err != nil {
+		return merchant, err
+	}
+
+	return merchant, nil
 }
 
 //GetCantTotal method
@@ -114,6 +120,63 @@ func (repo *Mongodb) GetCantTotal() (int, error) {
 	return int(total), nil
 }
 
+// CreateNew method
+func (repo *Mongodb) CreateNew(params interface{}) error {
+	//connect collection
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	_, err := collection.InsertOne(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Update method
+func (repo *Mongodb) Update(ID string, params interface{}) (model.Merchant, error) {
+
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	updated := model.Merchant{}
+
+	objectID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return updated, err
+	}
+
+	filter := bson.M{"_id": objectID}
+	update := bson.M{"$set": params}
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	err = collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updated)
+
+	return updated, err
+}
+
+// Delete method
+func (repo *Mongodb) Delete(ID string) error {
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+
+	objectID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return err
+	}
+
+	_, err = collection.DeleteOne(ctx, bson.M{"_id": objectID})
+
+	return err
+}
+
 //Search method
 func (repo *Mongodb) Search(params interface{}) (*mongo.Cursor, context.Context, error) {
 	collection := repo.db.Collection(defaultCollectionName)
@@ -126,61 +189,4 @@ func (repo *Mongodb) Search(params interface{}) (*mongo.Cursor, context.Context,
 	}
 
 	return cursor, ctx, nil
-}
-
-// CreateNew method
-func (repo *Mongodb) CreateNew(params interface{}) (string, error) {
-	//connect collection
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	result, err := collection.InsertOne(ctx, params)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%v", result.InsertedID), nil
-}
-
-// Update method
-func (repo *Mongodb) Update(merchantID string, params interface{}) (model.Merchant, error) {
-
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	updatedMerchant := model.Merchant{}
-
-	objectID, err := primitive.ObjectIDFromHex(merchantID)
-	if err != nil {
-		return model.Merchant{}, err
-	}
-
-	filter := bson.M{"_id": objectID}
-	update := bson.M{"$set": params}
-	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
-
-	err = collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updatedMerchant)
-
-	return updatedMerchant, err
-}
-
-// Delete method
-func (repo *Mongodb) Delete(merchantID string) error {
-	collection := repo.db.Collection(defaultCollectionName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-
-	objectID, err := primitive.ObjectIDFromHex(merchantID)
-	if err != nil {
-		return err
-	}
-
-	_, err = collection.DeleteOne(ctx, bson.M{"_id": objectID})
-
-	return err
 }

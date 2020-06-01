@@ -1,25 +1,33 @@
 
 **POST**
-/api/employee
+/api/location
 ```json
 {
-	"firstName": "test11",
-	"lastName": "quispe",
-	"rolesId": "chef",
-	"locationId": "1234",
-	"email":"test11@example.com",
-	"password":"test1234",
+	"name": "test11",
+	"merchantId": [merchantID],
+	"email": "test11@example.com",
+	"addresses": {
+		"country":"Peru",
+		"state":"Lima",
+		"city":"chorrillos",
+		"street":"street",
+		"postalcode":"15066"
+	},
+	"currency":"test11@example.com",
+	"description":"test1234",
+	"website":"test1234",
+	"twitter":"test1234",
+	"instagram":"test1234",
 	"status": "activo",
-	"phoneNumber": "9445-98989",
-	"addresses": "chorrillos"
+	"phoneNumber": "9445-98989"
 }
 ```
 
 **GET**
-/api/employee?Id=5ecbf37c29bb3ef231594f75
+/api/location?Id=5ecd8dd1b4117f07a32d8882
 
 **PUT**
-/api/employee?employeeId=5ecbf37c29bb3ef231594f75
+/api/location?locationId=5ecbf37c29bb3ef231594f75
 ```json
 {
 	"firstName": "saul",
@@ -31,15 +39,15 @@
 ```
 
 **GET**
-/api/employee/total
+/api/location/total
 ```json
 {
-	"limit": "1",
-	"offset": "0"
+	"limit": 2,
+	"offset": 0
 }
 ```
 
 **DELETE**
-/api/employee?Id=5ecbf37c29bb3ef231594f75
+/api/location?Id=5ecbf37c29bb3ef231594f75
 
 

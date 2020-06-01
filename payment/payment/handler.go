@@ -47,14 +47,9 @@ func (handler *Handler) Done() {
 // GetPaymentByID
 func (handler *Handler) GetPaymentByID(context echo.Context) error {
 
-	paymentID := context.QueryParam("Id")
-	find, err := handler.paymentRepo.GetByID(paymentID)
+	ID := context.QueryParam("Id")
+	payment, err := handler.paymentRepo.GetByID(ID)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	payment := model.Payment{}
-	if err = find.Decode(&payment); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -73,13 +68,8 @@ func (handler *Handler) GetPayments(context echo.Context) error {
 		return context.JSON(http.StatusBadRequest, err)
 	}
 
-	cursor, ctx, err := handler.paymentRepo.GetAll(params)
+	payments, err := handler.paymentRepo.GetAll(params)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	payments := []model.Payment{}
-	if err = cursor.All(ctx, &payments); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
@@ -96,7 +86,7 @@ func (handler *Handler) GetPayments(context echo.Context) error {
 
 // CreatePayment method
 func (handler *Handler) CreatePayment(context echo.Context) error {
-	request := new(model.CreatePayment)
+	request := new(model.Payment)
 	if err := context.Bind(request); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
@@ -106,29 +96,31 @@ func (handler *Handler) CreatePayment(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
+	//validate ID externt
+	err := handler.paymentRepo.ValidateID("location", request.LocationID)
+	if err != nil {
+		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
+	}
+
+	//validate ID externt
+	err = handler.paymentRepo.ValidateID("customer", request.CustomerID)
+	if err != nil {
+		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
+	}
+
 	// Dates Mongodb
-	request.PaymentID = primitive.NewObjectID()
+	request.ID = primitive.NewObjectID()
 	request.CreatedAt = time.Now()
 	request.UpdatedAt = time.Now()
 
-	_, err := handler.paymentRepo.CreateNew(request)
+	err = handler.paymentRepo.CreateNew(request)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-	//show new payment
-	find, err := handler.paymentRepo.GetByID(request.PaymentID.Hex())
-	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	payment := model.Payment{}
-	if err = find.Decode(&payment); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
 	return context.JSON(http.StatusOK, DefaultPaymentResponse{
 		Error:   false,
-		Payment: payment,
+		Payment: *request,
 	})
 
 }
@@ -136,8 +128,8 @@ func (handler *Handler) CreatePayment(context echo.Context) error {
 // UpdatePayment
 func (handler *Handler) UpdatePayment(context echo.Context) error {
 
-	paymentID := context.QueryParam("paymentId")
-	if len(paymentID) == 0 {
+	ID := context.QueryParam("Id")
+	if len(ID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("paymentId queryParam is missing"))
 	}
 
@@ -151,19 +143,14 @@ func (handler *Handler) UpdatePayment(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	find, err := handler.paymentRepo.GetByID(paymentID)
+	payment, err := handler.paymentRepo.GetByID(ID)
 	if err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 
-	currentPayment := model.Payment{}
-	if err = find.Decode(&currentPayment); err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	req.Populate(currentPayment)
+	req.Populate(payment)
 	updatedPayment, err := handler.paymentRepo.Update(
-		paymentID,
+		ID,
 		model.Paymentupdate,
 	)
 	if err != nil {
@@ -186,13 +173,8 @@ func (handler *Handler) DeletePayment(context echo.Context) error {
 		return context.JSON(http.StatusInternalServerError, errors.New("paymentId queryParam is missing"))
 	}
 
-	find, err := handler.paymentRepo.GetByID(paymentID)
+	payment, err := handler.paymentRepo.GetByID(paymentID)
 	if err != nil {
-		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
-	}
-
-	payment := model.Payment{}
-	if err = find.Decode(&payment); err != nil {
 		return context.JSON(http.StatusInternalServerError, errors.NewError(err))
 	}
 

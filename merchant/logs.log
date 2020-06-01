@@ -1,0 +1,5 @@
+method=POST, uri=/api/merchant, status=500,latency:143314
+method=POST, uri=/api/merchant, status=200,latency:733373506
+method=GET, uri=/api/merchant?Id=5ed339a7e7259a2e031138e5, status=200,latency:95703442
+method=PUT, uri=/api/merchant?Id=5ed339a7e7259a2e031138e5, status=500,latency:192952630
+method=PUT, uri=/api/merchant?Id=5ed339a7e7259a2e031138e5, status=200,latency:815106509

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/orderforme/location/config"
-	"github.com/orderforme/location/model"
+	"github.com/orderforme/example/config"
+	"github.com/orderforme/example/model"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -14,20 +14,21 @@ import (
 
 const (
 	mongoDefaultTimeOut   = 5 * time.Second
-	defaultCollectionName = "location"
+	defaultCollectionName = "employee"
 )
 
 type MongoDB interface {
 	ConnectDB() error
 	DisconnectDB() error
-	GetByID(ID string) (model.Location, error)
-	GetAll(params *model.GetLimit) ([]model.Location, error)
+	GetByID(employeeID string) (*mongo.SingleResult, error)
+	GetAll(params *model.GetLimit) (*mongo.Cursor, context.Context, error)
 	GetCantTotal() (int, error)
-	CreateNew(params interface{}) error
-	Update(ID string, params interface{}) (model.Location, error)
-	Delete(ID string) error
-	ValidateID(table string, ID primitive.ObjectID) error
 	Search(params interface{}) (*mongo.Cursor, context.Context, error)
+	CreateNew(params interface{}) error
+	Update(employeeID string, params interface{}) (model.Employee, error)
+	Delete(employeeID string) error
+	ValidateID(table string, employeeID string, params interface{}) error
+	Prueba(ID string, params interface{}) (model.Employee, error)
 }
 
 type Mongodb struct {
@@ -63,47 +64,39 @@ func (repo *Mongodb) DisconnectDB() error {
 }
 
 // GetByID method
-func (repo *Mongodb) GetByID(ID string) (model.Location, error) {
+func (repo *Mongodb) GetByID(ID string) (*mongo.SingleResult, error) {
 	collection := repo.db.Collection(defaultCollectionName)
+
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
-	location := model.Location{}
 	objectID, err := primitive.ObjectIDFromHex(ID)
 	if err != nil {
-		return location, err
+		return nil, err
 	}
 
-	err = collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&location)
-	if err != nil {
-		return location, err
-	}
+	find := collection.FindOne(ctx, bson.M{"_id": objectID})
 
-	return location, nil
+	return find, nil
 }
 
 // GetAll method
-func (repo *Mongodb) GetAll(params *model.GetLimit) ([]model.Location, error) {
+func (repo *Mongodb) GetAll(params *model.GetLimit) (*mongo.Cursor, context.Context, error) {
 	collection := repo.db.Collection(defaultCollectionName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
-	locations := []model.Location{}
 	options := options.Find()
 	options.SetSkip(int64(params.Offset))
 	options.SetLimit(int64(params.Limit))
 
 	cursor, err := collection.Find(ctx, bson.M{}, options)
 	if err != nil {
-		return locations, err
+		return nil, nil, err
 	}
 
-	if err = cursor.All(ctx, &locations); err != nil {
-		return locations, err
-	}
-
-	return locations, nil
+	return cursor, ctx, nil
 }
 
 //GetCantTotal method
@@ -122,6 +115,20 @@ func (repo *Mongodb) GetCantTotal() (int, error) {
 	return int(total), nil
 }
 
+//Search method
+func (repo *Mongodb) Search(params interface{}) (*mongo.Cursor, context.Context, error) {
+	collection := repo.db.Collection(defaultCollectionName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
+	defer cancel()
+	cursor, err := collection.Find(ctx, params)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cursor, ctx, nil
+}
+
 // CreateNew method
 func (repo *Mongodb) CreateNew(params interface{}) error {
 	//connect collection
@@ -135,19 +142,18 @@ func (repo *Mongodb) CreateNew(params interface{}) error {
 		return err
 	}
 
+	//return fmt.Sprintf("%v", result.InsertedID), nil
 	return nil
 }
 
 // Update method
-func (repo *Mongodb) Update(ID string, params interface{}) (model.Location, error) {
+func (repo *Mongodb) Update(ID string, params interface{}) (model.Employee, error) {
 
 	collection := repo.db.Collection(defaultCollectionName)
-
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
-	updated := model.Location{}
-
+	updated := model.Employee{}
 	objectID, err := primitive.ObjectIDFromHex(ID)
 	if err != nil {
 		return updated, err
@@ -156,7 +162,6 @@ func (repo *Mongodb) Update(ID string, params interface{}) (model.Location, erro
 	filter := bson.M{"_id": objectID}
 	update := bson.M{"$set": params}
 	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
-
 	err = collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updated)
 
 	return updated, err
@@ -179,14 +184,21 @@ func (repo *Mongodb) Delete(ID string) error {
 	return err
 }
 
-// ValidateID method
-func (repo *Mongodb) ValidateID(table string, ID primitive.ObjectID) error {
+// GetByID method
+func (repo *Mongodb) ValidateID(table string, ID string, params interface{}) error {
 
 	collection := repo.db.Collection(table)
 	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
 	defer cancel()
 
-	err := collection.FindOne(ctx, bson.M{"_id": ID}).Err()
+	objectID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return err
+	}
+
+	other := params
+	//other := model.Location{}
+	err = collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&other)
 	if err != nil {
 		return err
 	}
@@ -194,16 +206,7 @@ func (repo *Mongodb) ValidateID(table string, ID primitive.ObjectID) error {
 	return nil
 }
 
-//Search method
-func (repo *Mongodb) Search(params interface{}) (*mongo.Cursor, context.Context, error) {
-	collection := repo.db.Collection(defaultCollectionName)
+func (repo *Mongodb) Prueba(ID string, params interface{}) (model.Employee, error) {
 
-	ctx, cancel := context.WithTimeout(context.Background(), mongoDefaultTimeOut)
-	defer cancel()
-	cursor, err := collection.Find(ctx, params)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return cursor, ctx, nil
+	return model.Employee{}, nil
 }
