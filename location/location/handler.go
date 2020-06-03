@@ -120,7 +120,7 @@ func (handler *Handler) CreateLocation(context echo.Context) error {
 // UpdateLocation method
 func (handler *Handler) UpdateLocation(context echo.Context) error {
 
-	ID := context.QueryParam("locationId")
+	ID := context.QueryParam("Id")
 	if len(ID) == 0 {
 		return context.JSON(http.StatusInternalServerError, errors.New("locationId queryParam is missing"))
 	}

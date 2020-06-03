@@ -18,6 +18,7 @@ type AmountMoney struct {
 
 type Payment struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Object        string             `bson:"object" json:"object"`
 	Name          string             `bson:"name" json:"name" validate:"required"`
 	Status        string             `bson:"status" json:"status" validate:"required"`             //"ACTIVE"
 	Country       string             `bson:"country" json:"country" validate:"required"`           //"US",
@@ -28,8 +29,8 @@ type Payment struct {
 	OrderID       string             `bson:"orderID" json:"orderID" validate:"required"` //["ORDER_ID"],
 	CustomerID    primitive.ObjectID `bson:"customerID" json:"customerID" validate:"required"`
 	ReceiptNumber string             `bson:"receiptNumber" json:"receiptNumber" validate:"required"` //"GQTF",
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	CreatedAt     time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt     time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
 type PaymentUpdate struct {
